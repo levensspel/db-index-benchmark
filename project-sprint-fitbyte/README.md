@@ -12,7 +12,7 @@ This benchmark is done on the second week of the project which require to create
 
 You can see the table schema being used in this benchmark in the [ddl.sql](./ddl.sql "Table Schema DDL") file.
 
-There are 1500 users and 6000 activities records generated for this testing as you can also see the DDL in [users_and_activities.sql](./users_and_activities.sql "Data Generation DDL")
+There are 1500 users and 6000 activities records generated for this testing as you can also see the DDL in [sample_data.sql](./sample_data.sql "Data Generation DDL")
 
 The ERD is represented as follows:
 
