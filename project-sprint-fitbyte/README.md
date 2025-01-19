@@ -31,6 +31,11 @@ For this specific benchmark, I'm focusing to discover the ideal indexing to be u
 The indexes being measured are adjusted to what expected to be more performant from case to case.
 The initial cases will use Hash index and B-Tree index as they are estimated more optimized for the given filtering condition.
 
+The queries in this testing are ran multiple times to see the relative average at the time and use this average number in the comparison.
+The standard deviation to the average could range from ~0.400 ms to ~2.000 ms at very rare case, e.g. a query averaging 1.500 ms could sometimes reach 1.000 ms and a query averaging 2.000 ms could reach ~4.000 ms, both rarely.
+
+But since the average numbers taken are notably noticeable as the most common result over some iterations, I decided to use it.Especially because it seems really hard to get a very exact number representing each query perfomances, I think it is pretty safe to at least figuring out whether there are significant difference in result.
+
 The cases being benchmarked are as follows:
 1. [Activity_Type](#case-1)
 2. [Activity_Type & Limit & Offset](#case-2)
@@ -50,6 +55,8 @@ The specific values used for each cases are same as follows:
 - Calories_Burned from 500 to 800
 - Limit = 6000
 - Offset = 10
+
+Notation: "." represents comma (e.g. "1.234 ms" read "one point two hundred thirty four")
 
 For reference to the metrics being used in PostgreSQL, you can refer the [Internals of PostgreSQL by Hironobu Suzuki](https://www.interdb.jp/pg/pgsql03/02.html)
 
@@ -91,10 +98,10 @@ Indexing Type                                  | Cost Estimation |  Actual Time 
 ---------------------------------------------- | --------------- | -------------- | --------------- | --------------- |
 Without Index                                  | 0.00..137.00    | 0.028..2.506   | 0.171 ms        |  2.679 ms       |
 Hash (activity_type)                           | 0.00..127.54    | 0.159..1.687   | 0.201 ms        |  1.885 ms       |
-Hash (activity_type) + B-Tree (activity_type)  | 0.00..126.54    | 0.138..1.453   | 0.172 ms        |  1.628 ms       |
-B-Tree (activity_type)                         | 0.00..94.83     | 0.110..1.126   | 0.183 ms        |  1.532 ms       |
+Hash (activity_type) + B-Tree (activity_type)  | 0.00..95.83     | 0.115..1.279   | 0.198 ms        |  1.504 ms       |
+B-Tree (activity_type)                         | 0.00..94.83     | 0.111..1.365   | 0.183 ms        |  1.532 ms       |
 
-Note: When B-Tree & Hash index are coexisted, the query ran by `EXPLAIN ANALYZE` only shows B-Tree Index being used without Hash Index (see the query tree result in appendix). 
+Note: When B-Tree & Hash index are coexisted, the query ran by `EXPLAIN ANALYZE` only shows B-Tree index being used without Hash index ([see the query tree result in appendix](#btree-over-hash)). 
 
 ### 3. Done_At & Limit & Offset <a name="case-3"></a>
 Query: 
@@ -369,19 +376,29 @@ OFFSET 10;
 (8 rows)
 ```
 
-#### 2.3 Hash (activity_type) + B-Tree (activity_type)
+#### 2.3 Hash (activity_type) + B-Tree (activity_type) <a name="btree-over-hash"></a>
 ```
-ps2_experiment=# explain analyze select id, activity_type, done_at, duration_in_minutes, calories_burned, created_at from activities where activity_type=5 limit 6000 offset 10;
-                                                                QUERY PLAN                                                                
-------------------------------------------------------------------------------------------------------------------------------------------
- Limit  (cost=50.03..126.54 rows=1202 width=34) (actual time=0.216..1.453 rows=1202 loops=1)
-   ->  Bitmap Heap Scan on activities  (cost=49.39..126.54 rows=1212 width=34) (actual time=0.197..1.207 rows=1212 loops=1)
+ps2_experiment=# EXPLAIN ANALYZE SELECT 
+  id, 
+  activity_type, 
+  done_at, 
+  duration_in_minutes, 
+  calories_burned, 
+  created_at 
+FROM activities 
+WHERE activity_type = 5 
+LIMIT 6000 
+OFFSET 10;
+                                                               QUERY PLAN                                                                
+-----------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=18.32..95.83 rows=1202 width=34) (actual time=0.172..1.279 rows=1202 loops=1)
+   ->  Bitmap Heap Scan on activities  (cost=17.68..95.83 rows=1212 width=34) (actual time=0.161..1.040 rows=1212 loops=1)
          Recheck Cond: (activity_type = 5)
          Heap Blocks: exact=62
-         ->  Bitmap Index Scan on activities_type_hash  (cost=0.00..49.09 rows=1212 width=0) (actual time=0.138..0.140 rows=1212 loops=1)
+         ->  Bitmap Index Scan on activity_type_btree  (cost=0.00..17.37 rows=1212 width=0) (actual time=0.115..0.116 rows=1212 loops=1)
                Index Cond: (activity_type = 5)
- Planning Time: 0.172 ms
- Execution Time: 1.628 ms
+ Planning Time: 0.198 ms
+ Execution Time: 1.504 ms
 (8 rows)
 ```
 
